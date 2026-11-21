@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Humes Bank — Secure Online Banking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .hero-gradient {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #1e3a8a 100%);
+    }
+    .card-gradient-active {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 50%, #0f172a 100%);
+    }
+    .card-gradient-frozen {
+      background: linear-gradient(135deg, #64748b 0%, #334155 100%);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ========================================================= -->
+  <!-- 1. AUTHENTICATION & 2FA GATE                              -->
+  <!-- ========================================================= -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 hero-gradient">
+    <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl space-y-6">
+      
+      <!-- Brand Header -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-extrabold text-xl">H</div>
+          <div>
+            <h1 class="font-extrabold text-xl text-slate-900 leading-none">Humes Bank</h1>
+            <p class="text-[11px] text-slate-500 mt-0.5">Private & Commercial Portal (AUD)</p>
+          </div>
+        </div>
+        <span id="db-mode-badge" class="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">Local Vault</span>
+      </div>
+
+      <!-- STEP A: SIGN IN / REGISTER FORM -->
+      <div id="auth-step-credentials" class="space-y-4">
+        <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <button id="mode-signin" onclick="setAuthMode('signin')" class="flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-2xs transition">Sign In</button>
+          <button id="mode-register" onclick="setAuthMode('register')" class="flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition">Open Account</button>
+        </div>
+
+        <form onsubmit="handleCredentialsSubmit(event)" class="space-y-4">
+          <div id="register-name-field" class="hidden">
+            <label class="text-xs font-semibold text-slate-600">Full Legal Name</label>
+            <input id="auth-name" type="text" placeholder="LaWarren Patterson" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold text-slate-600">Email Address</label>
+            <input id="auth-email" type="email" value="lawarren.patterson@humesbank.com.au" required class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold text-slate-600">Password</label>
+            <input id="auth-password" type="password" value="••••••••••••" required class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+
+          <button type="submit" id="auth-submit-btn" class="w-full py-3.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm shadow-md transition">
+            Continue to 2FA Verification
+          </button>
+        </form>
+      </div>
+
+      <!-- STEP B: 2FA VERIFICATION -->
+      <div id="auth-step-2fa" class="hidden space-y-5">
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-xs text-blue-900 space-y-1">
+          <p class="font-bold flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-4 h-4 text-blue-700"></i>
+            Two-Factor Security Check
+          </p>
+          <p>We sent a 6-digit verification code to your registered device. Demo code: <strong id="demo-otp-display" class="font-mono text-sm">482910</strong></p>
+        </div>
+
+        <form onsubmit="handle2FASubmit(event)" class="space-y-4">
+          <div>
+            <label class="text-xs font-semibold text-slate-600">Enter 6-Digit Security Code</label>
+            <input id="otp-input" type="text" maxlength="6" placeholder="482910" required class="w-full mt-1.5 p-3.5 rounded-xl border border-slate-200 text-center font-mono text-2xl tracking-[0.4em] font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+
+          <button type="submit" class="w-full py-3.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm shadow-md transition">
+            Verify & Unlock Dashboard
+          </button>
+          <button type="button" onclick="backToCredentials()" class="w-full text-xs text-slate-500 hover:text-slate-800 font-medium">
+            ← Back to Sign In
+          </button>
+        </form>
+      </div>
+
+      <p class="text-[11px] text-center text-slate-400">Protected by Humes Bank Hardware Key & TLS 1.3</p>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 2. AUTHENTICATED BANKING PORTAL                           -->
+  <!-- ========================================================= -->
+  <div id="portal-shell" class="hidden min-h-screen flex flex-col">
+    
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-700 text-white flex items-center justify-center font-extrabold text-lg">H</div>
+          <div>
+            <span class="font-extrabold text-lg tracking-tight text-slate-900">Humes Bank</span>
+            <span class="hidden sm:inline-block ml-2 text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">AUD • NPP & Osko Enabled</span>
+          </div>
+        </div>
+
+        <nav class="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <button onclick="switchTab('overview')" id="tab-overview" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-white text-slate-900 shadow-2xs transition">Overview</button>
+          <button onclick="switchTab('partners')" id="tab-partners" class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition">AU Bank Partners</button>
+          <button onclick="switchTab('cards')" id="tab-cards" class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition">Cards & Security</button>
+          <button onclick="switchTab('insights')" id="tab-insights" class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition">Insights & AI</button>
+        </nav>
+
+        <div class="flex items-center gap-2.5">
+          <button onclick="togglePrivacy()" class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 px-3 py-2 rounded-xl transition">
+            <i id="privacy-icon" data-lucide="eye" class="w-4 h-4"></i>
+            <span id="privacy-label" class="hidden sm:inline">Hide Balances</span>
+          </button>
+          <button onclick="logout()" class="flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl transition" title="Lock Session">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Sign Out</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Sub-Nav -->
+      <div class="flex md:hidden border-t border-slate-100 px-3 py-2 gap-1.5 bg-slate-50 overflow-x-auto">
+        <button onclick="switchTab('overview')" id="mob-tab-overview" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs whitespace-nowrap">Overview</button>
+        <button onclick="switchTab('partners')" id="mob-tab-partners" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-medium text-slate-600 whitespace-nowrap">AU Banks</button>
+        <button onclick="switchTab('cards')" id="mob-tab-cards" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-medium text-slate-600 whitespace-nowrap">Cards</button>
+        <button onclick="switchTab('insights')" id="mob-tab-insights" class="flex-1 py-1.5 px-2 rounded-lg text-xs font-medium text-slate-600 whitespace-nowrap">Insights & AI</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+
+      <!-- VIEW 1: OVERVIEW -->
+      <section id="view-overview" class="space-y-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 id="welcome-heading" class="text-2xl font-bold text-slate-900">Welcome back, LaWarren Patterson</h1>
+            <p class="text-sm text-slate-500">Humes Bank Premier Checking & High-Yield Vault (AUD)</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="openTransferModal()" class="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xs transition">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              Transfer to Any AU Bank
+            </button>
+            <button onclick="openModal('deposit-modal')" class="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              Deposit Funds
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 hero-gradient rounded-3xl p-6 sm:p-8 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute -right-12 -top-12 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl"></div>
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-blue-200">Total Humes Bank Liquidity (AUD)</span>
+                <span class="text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full">4.65% p.a. Active</span>
+              </div>
+              <div id="total-balance" class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">A$6,063,000.00</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-white/15">
+              <div>
+                <p class="text-xs text-slate-300">Humes Premier Checking ••4821</p>
+                <p id="checking-balance" class="text-lg sm:text-xl font-bold mt-1">A$1,063,000.00</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-300">Humes High-Yield Vault ••9014</p>
+                <p id="savings-balance" class="text-lg sm:text-xl font-bold mt-1">A$5,000,000.00</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-bold text-slate-900">NPP / Osko Interbank Network</h2>
+                <span class="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full">28 AU Banks Live</span>
+              </div>
+              <div class="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+                <div class="flex justify-between items-center text-xs text-slate-400">
+                  <span>HUMES BSB: 802-985</span>
+                  <span class="text-emerald-400 font-semibold">Instant Osko</span>
+                </div>
+                <p class="font-mono text-sm tracking-widest">ACCT: 4821 9044</p>
+                <p class="text-[11px] text-slate-300">Direct clearing to CommBank, Westpac, ANZ, NAB, Macquarie & 23+ partners.</p>
+              </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-xs text-slate-500">View BSB directory</span>
+              <button onclick="switchTab('partners')" class="text-xs font-bold text-blue-700 hover:underline">All AU Bank Partners →</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Recent Transactions</h2>
+              <p class="text-xs text-slate-500">Real-time AUD ledger synced to LaWarren Patterson's profile</p>
+            </div>
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input id="tx-search" oninput="render()" type="text" placeholder="Filter transactions..." class="text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+          </div>
+          <div id="transaction-list" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: AUSTRALIAN BANK TRANSFER PARTNERS -->
+      <section id="view-partners" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Australian Bank Transfer Partners</h1>
+            <p class="text-sm text-slate-500">Connected via New Payments Platform (NPP), Osko® & Direct Entry (BSB)</p>
+          </div>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input id="partner-search" oninput="renderPartnersDirectory()" type="text" placeholder="Search bank or BSB prefix..." class="text-xs bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex flex-wrap gap-2">
+          <button onclick="filterPartnerTier('all')" id="tier-all" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-700 text-white transition">All Partners (28)</button>
+          <button onclick="filterPartnerTier('Big Four')" id="tier-Big Four" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition">Major Big Four</button>
+          <button onclick="filterPartnerTier('Digital & Neo')" id="tier-Digital & Neo" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition">Digital & Neobanks</button>
+          <button onclick="filterPartnerTier('Regional & Mutual')" id="tier-Regional & Mutual" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition">Regional & Mutuals</button>
+        </div>
+
+        <div id="partners-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- VIEW 3: CARDS & SECURITY -->
+      <section id="view-cards" class="hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">Cards & Security Controls</h1>
+          <p class="text-sm text-slate-500">Instant virtual controls for your Humes Bank Platinum Debit Card</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+          <div id="card-visual" class="card-gradient-active rounded-3xl p-8 text-white shadow-xl aspect-[1.586/1] flex flex-col justify-between transition-all duration-300">
+            <div class="flex justify-between items-center">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-bold text-sm">H</div>
+                <span class="font-bold tracking-wider text-sm">HUMES BANK</span>
+              </div>
+              <span id="card-status-badge" class="text-xs bg-white/20 px-3 py-1 rounded-full font-semibold">ACTIVE</span>
+            </div>
+
+            <div>
+              <p class="text-xs text-blue-200 mb-1">Card Number</p>
+              <p id="card-number-display" class="font-mono text-xl sm:text-2xl tracking-widest">•••• •••• •••• 4821</p>
+            </div>
+
+            <div class="flex justify-between items-end">
+              <div>
+                <p class="text-[10px] text-blue-200 uppercase">Cardholder</p>
+                <p id="card-holder-name" class="font-semibold tracking-wide text-sm">LAWARREN PATTERSON</p>
+              </div>
+              <div class="flex gap-6">
+                <div>
+                  <p class="text-[10px] text-blue-200 uppercase">Expires</p>
+                  <p class="font-mono font-semibold text-sm">09/29</p>
+                </div>
+                <div>
+                  <p class="text-[10px] text-blue-200 uppercase">CVV</p>
+                  <p id="card-cvv-display" class="font-mono font-semibold text-sm">•••</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl border border-slate-200 divide-y divide-slate-100 shadow-2xs">
+            <div class="p-6 flex items-center justify-between">
+              <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                  <i data-lucide="eye" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">Reveal Card Credentials</p>
+                  <p class="text-xs text-slate-500">Show full 16-digit card number and security code</p>
+                </div>
+              </div>
+              <input type="checkbox" id="toggle-card-details" onchange="toggleCardDetails()" class="w-5 h-5 accent-blue-700 rounded cursor-pointer">
+            </div>
+
+            <div class="p-6 flex items-center justify-between">
+              <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                  <i data-lucide="snowflake" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">Freeze Debit Card</p>
+                  <p class="text-xs text-slate-500">Immediately block new purchases and outgoing transfers</p>
+                </div>
+              </div>
+              <input type="checkbox" id="toggle-freeze-card" onchange="toggleFreezeCard()" class="w-5 h-5 accent-blue-700 rounded cursor-pointer">
+            </div>
+
+            <div class="p-6 flex items-center justify-between">
+              <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">Reset Account State</p>
+                  <p class="text-xs text-slate-500">Restore A$6,063,000.00 balance and March 2026 ledger</p>
+                </div>
+              </div>
+              <button onclick="resetDemoData()" class="text-xs font-bold text-blue-700 hover:underline">Reset Data</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: INSIGHTS & AI -->
+      <section id="view-insights" class="hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">Financial Insights & Humes AI</h1>
+          <p class="text-sm text-slate-500">Automated cash-flow tracking and instant account actions</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 space-y-5 shadow-2xs">
+            <h2 class="text-base font-bold text-slate-900">March 2026 Withdrawals (AUD)</h2>
+            <div class="text-3xl font-extrabold text-slate-900">A$437,000.00</div>
+            <div class="w-full h-3.5 bg-slate-100 rounded-full overflow-hidden flex">
+              <div class="bg-blue-700 h-full" style="width: 80.1%" title="18 March 2026"></div>
+              <div class="bg-amber-500 h-full" style="width: 19.9%" title="16 March 2026"></div>
+            </div>
+            <div class="space-y-3 pt-2 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-2 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-blue-700"></span>18 Mar 2026 Settlement</span>
+                <span class="font-bold">A$350,000.00</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-2 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>16 Mar 2026 Withdrawal</span>
+                <span class="font-bold">A$87,000.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 flex flex-col h-[420px] shadow-2xs">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-blue-700 text-white flex items-center justify-center">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i>
+                </div>
+                <span class="font-bold text-sm text-slate-900">Humes Bank AI Assistant</span>
+              </div>
+              <span class="text-[11px] font-medium text-slate-400">Live AUD Account Context</span>
+            </div>
+
+            <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-3 text-sm">
+              <div class="bg-slate-100 text-slate-800 p-3.5 rounded-2xl rounded-tl-none max-w-[80%]">
+                Welcome to Humes Bank AI, LaWarren. After deducting your <strong>A$350,000.00</strong> (18 March 2026) and <strong>A$87,000.00</strong> (16 March 2026) withdrawals from A$6,500,000.00, your total balance is <strong>A$6,063,000.00</strong>.
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 py-2 border-t border-slate-100">
+              <button onclick="askAI('Move A$100,000 to High-Yield Vault')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-3 py-1.5 rounded-full transition">Move A$100k to Vault</button>
+              <button onclick="askAI('Summary of March 2026 withdrawals')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-3 py-1.5 rounded-full transition">March Withdrawals</button>
+              <button onclick="askAI('How much interest will I earn?')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-3 py-1.5 rounded-full transition">Estimate Annual Yield</button>
+            </div>
+
+            <form onsubmit="handleChatSubmit(event)" class="flex gap-2 pt-2">
+              <input id="chat-input" type="text" placeholder="Ask Humes Bank AI..." class="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+              <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition">Send</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+        <p>© 2026 Humes Bank Limited. Australian Financial Services Licence • NPP / Osko® Participant.</p>
+        <p id="footer-sync-status">256-Bit TLS Encrypted Session (AUD)</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- INTERBANK & INTERNAL TRANSFER MODAL                       -->
+  <!-- ========================================================= -->
+  <div id="transfer-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 space-y-5 shadow-2xl my-8">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Transfer Funds (AUD)</h3>
+          <p class="text-xs text-slate-500">Instant Osko® & BSB transfers to any Australian bank</p>
+        </div>
+        <button onclick="closeModals()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Transfer Mode Switcher -->
+      <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button type="button" id="tx-mode-external" onclick="setTransferType('external')" class="flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-2xs transition">Other Australian Bank</button>
+        <button type="button" id="tx-mode-payid" onclick="setTransferType('payid')" class="flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition">PayID® Instant</button>
+        <button type="button" id="tx-mode-internal" onclick="setTransferType('internal')" class="flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition">Humes Vault</button>
+      </div>
+
+      <!-- EXTERNAL AU BANK FIELDS -->
+      <div id="transfer-external-fields" class="space-y-3.5">
+        <div>
+          <label class="text-xs font-semibold text-slate-600">Select Destination Australian Bank</label>
+          <select id="au-bank-select" onchange="onSelectBankPartner()" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-600">Recipient Account Name</label>
+            <input id="ext-account-name" type="text" placeholder="e.g. Sarah Jenkins" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-semibold text-slate-600">BSB</label>
+              <input id="ext-bsb" type="text" maxlength="7" oninput="formatBSBInput(this)" placeholder="062-000" class="w-full mt-1 p-3 rounded-xl border border-slate-200 font-mono text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-slate-600">Account No.</label>
+              <input id="ext-account-num" type="text" maxlength="10" placeholder="10482910" class="w-full mt-1 p-3 rounded-xl border border-slate-200 font-mono text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYID FIELDS -->
+      <div id="transfer-payid-fields" class="hidden space-y-3.5">
+        <div>
+          <label class="text-xs font-semibold text-slate-600">Recipient Bank Partner</label>
+          <select id="payid-bank-select" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600"></select>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-600">PayID Type</label>
+            <select id="payid-type" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50">
+              <option value="Mobile">Mobile (+61)</option>
+              <option value="Email">Email Address</option>
+              <option value="ABN">ABN / ACN</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-slate-600">PayID Identifier</label>
+            <input id="payid-value" type="text" placeholder="e.g. 0412 345 678 or name@email.com.au" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERNAL VAULT FIELDS -->
+      <div id="transfer-internal-fields" class="hidden space-y-3">
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-3.5 text-xs text-blue-900">
+          Transferring from <strong>Humes Premier Checking (••4821)</strong> to <strong>Humes High-Yield Vault (••9014 — 4.65% p.a.)</strong>.
+        </div>
+      </div>
+
+      <!-- AMOUNT & REFERENCE -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div>
+          <label class="text-xs font-semibold text-slate-600">Amount (AUD)</label>
+          <input id="transfer-amount" type="number" step="0.01" placeholder="0.00" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-lg font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600">Payment Reference / Description</label>
+          <input id="transfer-ref" type="text" placeholder="e.g. Invoice #402 or Settlement" class="w-full mt-1 p-3 rounded-xl border border-slate-200 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+        </div>
+      </div>
+
+      <button onclick="executeTransfer()" class="w-full py-3.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2">
+        <i data-lucide="zap" class="w-4 h-4"></i>
+        Send Instant AUD Transfer
+      </button>
+    </div>
+  </div>
+
+  <!-- DEPOSIT MODAL -->
+  <div id="deposit-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-900">Instant EFT / NPP Deposit (AUD)</h3>
+        <button onclick="closeModals()" class="p-1 text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">Deposit Amount (AUD)</label>
+        <input id="deposit-amount" type="number" step="0.01" value="50000.00" class="w-full mt-1.5 p-3 rounded-xl border border-slate-200 text-xl font-bold bg-slate-50" />
+      </div>
+      <button onclick="executeDeposit()" class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition">
+        Deposit into Humes Checking
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Banner -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl z-50">
+    Notification
+  </div>
+
+  <script>
+    const AU_BANK_PARTNERS = [
+      { code: "CBA", name: "Commonwealth Bank of Australia (CommBank)", bsbPrefix: "062-000", tier: "Big Four", rail: "Osko / NPP Instant", color: "bg-amber-400 text-slate-900" },
+      { code: "WBC", name: "Westpac Banking Corporation", bsbPrefix: "032-000", tier: "Big Four", rail: "Osko / NPP Instant", color: "bg-red-600 text-white" },
+      { code: "ANZ", name: "ANZ (Australia and New Zealand Banking Group)", bsbPrefix: "012-003", tier: "Big Four", rail: "Osko / NPP Instant", color: "bg-sky-600 text-white" },
+      { code: "NAB", name: "National Australia Bank (NAB)", bsbPrefix: "082-001", tier: "Big Four", rail: "Osko / NPP Instant", color: "bg-neutral-900 text-red-500" },
+      { code: "MQG", name: "Macquarie Bank", bsbPrefix: "182-512", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-slate-900 text-white" },
+      { code: "ING", name: "ING Australia", bsbPrefix: "923-100", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-orange-500 text-white" },
+      { code: "HSBC", name: "HSBC Bank Australia", bsbPrefix: "342-011", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-red-700 text-white" },
+      { code: "CITI", name: "Citibank Australia (NAB Group)", bsbPrefix: "242-000", tier: "Digital & Neo", rail: "NPP / Direct Entry", color: "bg-blue-800 text-white" },
+      { code: "UP", name: "Up Bank (Bendigo & Adelaide)", bsbPrefix: "633-123", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-orange-400 text-slate-950" },
+      { code: "UBNK", name: "ubank (NAB Digital)", bsbPrefix: "670-864", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-emerald-500 text-slate-950" },
+      { code: "AMP", name: "AMP Bank", bsbPrefix: "939-200", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-blue-600 text-white" },
+      { code: "ME", name: "ME Bank (Members Equity)", bsbPrefix: "944-600", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-lime-500 text-slate-950" },
+      { code: "RABO", name: "Rabobank Australia", bsbPrefix: "162-001", tier: "Digital & Neo", rail: "NPP / Direct Entry", color: "bg-orange-600 text-white" },
+      { code: "WISE", name: "Wise Australia (TransferWise)", bsbPrefix: "774-001", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-lime-400 text-slate-900" },
+      { code: "REV", name: "Revolut Payments Australia", bsbPrefix: "802-985", tier: "Digital & Neo", rail: "Osko / NPP Instant", color: "bg-slate-800 text-white" },
+      { code: "BEN", name: "Bendigo and Adelaide Bank", bsbPrefix: "633-000", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-rose-800 text-white" },
+      { code: "BOQ", name: "Bank of Queensland (BOQ)", bsbPrefix: "124-001", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-sky-700 text-white" },
+      { code: "SUN", name: "Suncorp Bank", bsbPrefix: "484-799", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-teal-700 text-white" },
+      { code: "SGB", name: "St.George Bank (Westpac Group)", bsbPrefix: "112-879", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-emerald-600 text-white" },
+      { code: "BOM", name: "Bank of Melbourne", bsbPrefix: "193-879", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-purple-800 text-white" },
+      { code: "BSA", name: "BankSA (Bank of South Australia)", bsbPrefix: "105-003", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-red-700 text-white" },
+      { code: "BWA", name: "Bankwest (CBA Group)", bsbPrefix: "306-089", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-orange-600 text-white" },
+      { code: "MYST", name: "MyState Bank", bsbPrefix: "807-009", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-cyan-700 text-white" },
+      { code: "GSB", name: "Great Southern Bank", bsbPrefix: "814-282", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-indigo-700 text-white" },
+      { code: "HERT", name: "Heritage Bank (People First)", bsbPrefix: "638-070", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-emerald-700 text-white" },
+      { code: "PEOP", name: "People's Choice Credit Union", bsbPrefix: "805-050", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-purple-700 text-white" },
+      { code: "NEWC", name: "Newcastle Permanent (NGM Group)", bsbPrefix: "650-000", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-blue-900 text-white" },
+      { code: "BEYD", name: "Beyond Bank Australia", bsbPrefix: "325-185", tier: "Regional & Mutual", rail: "Osko / NPP Instant", color: "bg-teal-600 text-white" }
+    ];
+
+    const SUPABASE_URL = ""; 
+    const SUPABASE_ANON_KEY = "";
+    const supabaseClient = (SUPABASE_URL && SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    if (supabaseClient) {
+      document.getElementById('db-mode-badge').textContent = 'Supabase Cloud';
+      document.getElementById('db-mode-badge').className = 'text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full';
+    }
+
+    const DEFAULT_STATE = {
+      userName: "LaWarren Patterson",
+      email: "lawarren.patterson@humesbank.com.au",
+      checking: 1063000.00,
+      savings: 5000000.00,
+      privacyMode: false,
+      cardFrozen: false,
+      transactions: [
+        {
+          id: 1,
+          title: "Wire Withdrawal — Settlement",
+          category: "Withdrawal",
+          amount: -350000.00,
+          date: "18 March 2026",
+          icon: "arrow-up-right"
+        },
+        {
+          id: 2,
+          title: "Direct Debit Withdrawal",
+          category: "Withdrawal",
+          amount: -87000.00,
+          date: "16 March 2026",
+          icon: "arrow-up-right"
+        },
+        {
+          id: 3,
+          title: "Commercial Dividend Credit",
+          category: "Deposit",
+          amount: 1850000.00,
+          date: "02 March 2026",
+          icon: "arrow-down-left"
+        },
+        {
+          id: 4,
+          title: "Vault Allocation Transfer",
+          category: "Transfer",
+          amount: -500000.00,
+          date: "14 February 2026",
+          icon: "send"
+        }
+      ]
+    };
+
+    const STORAGE_KEY = 'humes_bank_lawarren_6063000_v2';
+    let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || structuredClone(DEFAULT_STATE);
+    let authMode = 'signin';
+    let generatedOTP = '482910';
+    let transferType = 'external';
+    let activePartnerTier = 'all';
+
+    function initBankPartners() {
+      const extSelect = document.getElementById('au-bank-select');
+      const payIdSelect = document.getElementById('payid-bank-select');
+
+      const optionsHtml = AU_BANK_PARTNERS.map(b => 
+        `<option value="${b.code}">${b.name} — BSB ${b.bsbPrefix}</option>`
+      ).join('');
+
+      extSelect.innerHTML = optionsHtml;
+      payIdSelect.innerHTML = optionsHtml;
+      onSelectBankPartner();
+      renderPartnersDirectory();
+    }
+
+    function onSelectBankPartner() {
+      const code = document.getElementById('au-bank-select').value;
+      const bank = AU_BANK_PARTNERS.find(b => b.code === code);
+      if (bank) {
+        document.getElementById('ext-bsb').value = bank.bsbPrefix;
+      }
+    }
+
+    function formatBSBInput(el) {
+      let digits = el.value.replace(/\D/g, '').slice(0, 6);
+      if (digits.length > 3) {
+        el.value = digits.slice(0, 3) + '-' + digits.slice(3);
+      } else {
+        el.value = digits;
+      }
+    }
+
+    function filterPartnerTier(tier) {
+      activePartnerTier = tier;
+      ['all', 'Big Four', 'Digital & Neo', 'Regional & Mutual'].forEach(t => {
+        const btn = document.getElementById(`tier-${t}`);
+        if (t === tier) {
+          btn.className = "px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-700 text-white transition";
+        } else {
+          btn.className = "px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+      renderPartnersDirectory();
+    }
+
+    function renderPartnersDirectory() {
+      const search = (document.getElementById('partner-search')?.value || '').toLowerCase();
+      const filtered = AU_BANK_PARTNERS.filter(b => {
+        const matchesTier = activePartnerTier === 'all' || b.tier === activePartnerTier;
+        const matchesSearch = b.name.toLowerCase().includes(search) || b.bsbPrefix.includes(search) || b.code.toLowerCase().includes(search);
+        return matchesTier && matchesSearch;
+      });
+
+      const grid = document.getElementById('partners-grid');
+      grid.innerHTML = filtered.map(b => `
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between shadow-2xs hover:border-blue-300 transition">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl ${b.color} flex items-center justify-center font-extrabold text-xs shrink-0">
+                ${b.code}
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 leading-snug">${b.name}</h3>
+                <p class="text-xs text-slate-500 mt-0.5">BSB Prefix: <span class="font-mono font-semibold text-slate-700">${b.bsbPrefix}</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full">${b.rail}</span>
+            <button onclick="openTransferModal('${b.code}')" class="text-xs font-bold text-blue-700 hover:underline">Send AUD →</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      const nameField = document.getElementById('register-name-field');
+      const submitBtn = document.getElementById('auth-submit-btn');
+      const signInTab = document.getElementById('mode-signin');
+      const regTab = document.getElementById('mode-register');
+
+      if (mode === 'register') {
+        nameField.classList.remove('hidden');
+        submitBtn.textContent = 'Create Account & Verify 2FA';
+        regTab.className = 'flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-2xs transition';
+        signInTab.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition';
+      } else {
+        nameField.classList.add('hidden');
+        submitBtn.textContent = 'Continue to 2FA Verification';
+        signInTab.className = 'flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-2xs transition';
+        regTab.className = 'flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition';
+      }
+    }
+
+    function handleCredentialsSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim();
+      const nameInput = document.getElementById('auth-name').value.trim();
+
+      if (authMode === 'register' && nameInput) {
+        state.userName = nameInput;
+        state.email = email;
+      } else {
+        state.email = email;
+      }
+
+      generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      document.getElementById('demo-otp-display').textContent = generatedOTP;
+      document.getElementById('otp-input').value = generatedOTP;
+
+      document.getElementById('auth-step-credentials').classList.add('hidden');
+      document.getElementById('auth-step-2fa').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function backToCredentials() {
+      document.getElementById('auth-step-2fa').classList.add('hidden');
+      document.getElementById('auth-step-credentials').classList.remove('hidden');
+    }
+
+    async function handle2FASubmit(e) {
+      e.preventDefault();
+      const entered = document.getElementById('otp-input').value.trim();
+      if (entered !== generatedOTP) {
+        showToast('Invalid 6-digit verification code');
+        return;
+      }
+
+      sessionStorage.setItem('humes_authenticated', 'true');
+      await loadCloudStateIfConfigured();
+      saveState();
+      enterPortal();
+    }
+
+    function enterPortal() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('portal-shell').classList.remove('hidden');
+      document.getElementById('welcome-heading').textContent = `Welcome back, ${state.userName}`;
+      document.getElementById('card-holder-name').textContent = state.userName.toUpperCase();
+      document.getElementById('toggle-freeze-card').checked = state.cardFrozen;
+      syncCardFreezeUI();
+      render();
+    }
+
+    function logout() {
+      sessionStorage.removeItem('humes_authenticated');
+      document.getElementById('portal-shell').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      backToCredentials();
+      showToast('Humes Bank session locked');
+    }
+
+    async function loadCloudStateIfConfigured() {
+      if (!supabaseClient) return;
+      const { data, error } = await supabaseClient
+        .from('humes_accounts')
+        .select('*')
+        .eq('email', state.email)
+        .single();
+
+      if (data && !error) {
+        state.userName = data.user_name || state.userName;
+        state.checking = Number(data.checking_balance);
+        state.savings = Number(data.savings_balance);
+        state.cardFrozen = Boolean(data.card_frozen);
+        state.transactions = data.transactions || state.transactions;
+        document.getElementById('footer-sync-status').textContent = 'Synced with Humes Cloud Database';
+      }
+    }
+
+    async function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (!supabaseClient) return;
+
+      await supabaseClient.from('humes_accounts').upsert({
+        email: state.email,
+        user_name: state.userName,
+        checking_balance: state.checking,
+        savings_balance: state.savings,
+        card_frozen: state.cardFrozen,
+        transactions: state.transactions,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' });
+    }
+
+    function resetDemoData() {
+      state = structuredClone(DEFAULT_STATE);
+      saveState();
+      document.getElementById('toggle-freeze-card').checked = false;
+      syncCardFreezeUI();
+      render();
+      showToast('Account restored to A$6,063,000.00');
+    }
+
+    function formatMoney(val) {
+      if (state.privacyMode) return "••••••••";
+      const absFormatted = new Intl.NumberFormat('en-AU', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(Math.abs(val));
+      return val < 0 ? `-A$${absFormatted}` : `A$${absFormatted}`;
+    }
+
+    function render() {
+      document.getElementById('checking-balance').textContent = formatMoney(state.checking);
+      document.getElementById('savings-balance').textContent = formatMoney(state.savings);
+      document.getElementById('total-balance').textContent = formatMoney(state.checking + state.savings);
+
+      const query = (document.getElementById('tx-search')?.value || '').toLowerCase();
+      const filtered = state.transactions.filter(tx =>
+        tx.title.toLowerCase().includes(query) ||
+        tx.category.toLowerCase().includes(query) ||
+        tx.date.toLowerCase().includes(query)
+      );
+
+      const list = document.getElementById('transaction-list');
+      list.innerHTML = filtered.length ? filtered.map(tx => {
+        const isPositive = tx.amount > 0;
+        const amountStr = state.privacyMode ? "••••••" : (isPositive ? `+${formatMoney(tx.amount)}` : formatMoney(tx.amount));
+        return `
+          <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/80 transition">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} flex items-center justify-center shrink-0">
+                <i data-lucide="${tx.icon}" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-900">${tx.title}</p>
+                <p class="text-xs text-slate-500">${tx.category} • ${tx.date}</p>
+              </div>
+            </div>
+            <span class="text-sm font-bold ${isPositive ? 'text-emerald-600' : 'text-slate-900'}">${amountStr}</span>
+          </div>
+        `;
+      }).join('') : `<div class="p-8 text-center text-xs text-slate-400">No matching transactions found.</div>`;
+
+      lucide.createIcons();
+    }
+
+    function switchTab(tab) {
+      ['overview', 'partners', 'cards', 'insights'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).className = "px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition";
+        document.getElementById(`mob-tab-${t}`).className = "flex-1 py-1.5 px-2 rounded-lg text-xs font-medium text-slate-600 whitespace-nowrap";
+      });
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-white text-slate-900 shadow-2xs transition";
+      document.getElementById(`mob-tab-${tab}`).className = "flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs whitespace-nowrap";
+    }
+
+    function togglePrivacy() {
+      state.privacyMode = !state.privacyMode;
+      saveState();
+      document.getElementById('privacy-icon').setAttribute('data-lucide', state.privacyMode ? 'eye-off' : 'eye');
+      document.getElementById('privacy-label').textContent = state.privacyMode ? 'Show Balances' : 'Hide Balances';
+      render();
+    }
+
+    function toggleCardDetails() {
+      const checked = document.getElementById('toggle-card-details').checked;
+      document.getElementById('card-number-display').textContent = checked ? '4532 8910 3341 4821' : '•••• •••• •••• 4821';
+      document.getElementById('card-cvv-display').textContent = checked ? '842' : '•••';
+    }
+
+    function toggleFreezeCard() {
+      state.cardFrozen = document.getElementById('toggle-freeze-card').checked;
+      saveState();
+      syncCardFreezeUI();
+      showToast(state.cardFrozen ? 'Humes Debit Card frozen' : 'Humes Debit Card active');
+    }
+
+    function syncCardFreezeUI() {
+      const card = document.getElementById('card-visual');
+      const badge = document.getElementById('card-status-badge');
+
+      if (state.cardFrozen) {
+        card.classList.remove('card-gradient-active');
+        card.classList.add('card-gradient-frozen');
+        badge.textContent = 'FROZEN';
+      } else {
+        card.classList.add('card-gradient-active');
+        card.classList.remove('card-gradient-frozen');
+        badge.textContent = 'ACTIVE';
+      }
+    }
+
+    function openTransferModal(preselectedBankCode = null) {
+      if (state.cardFrozen) {
+        return showToast('Unfreeze your Humes card before initiating transfers');
+      }
+      setTransferType('external');
+      if (preselectedBankCode) {
+        document.getElementById('au-bank-select').value = preselectedBankCode;
+        onSelectBankPartner();
+      }
+      document.getElementById('transfer-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function setTransferType(type) {
+      transferType = type;
+      ['external', 'payid', 'internal'].forEach(t => {
+        document.getElementById(`transfer-${t}-fields`).classList.add('hidden');
+        const btn = document.getElementById(`tx-mode-${t}`);
+        btn.className = "flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-900 transition";
+      });
+      document.getElementById(`transfer-${type}-fields`).classList.remove('hidden');
+      document.getElementById(`tx-mode-${type}`).className = "flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-2xs transition";
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModals() {
+      document.getElementById('transfer-modal').classList.add('hidden');
+      document.getElementById('deposit-modal').classList.add('hidden');
+    }
+
+    function executeTransfer() {
+      const amount = parseFloat(document.getElementById('transfer-amount').value);
+      const ref = document.getElementById('transfer-ref').value.trim();
+
+      if (!amount || amount <= 0) return showToast('Please enter a valid AUD amount');
+      if (amount > state.checking) return showToast('Insufficient funds in Humes Premier Checking');
+
+      let txTitle = "";
+      let txCategory = "Interbank Transfer";
+
+      if (transferType === 'external') {
+        const bankCode = document.getElementById('au-bank-select').value;
+        const bank = AU_BANK_PARTNERS.find(b => b.code === bankCode);
+        const acctName = document.getElementById('ext-account-name').value.trim();
+        const bsb = document.getElementById('ext-bsb').value.trim();
+        const acctNum = document.getElementById('ext-account-num').value.trim();
+
+        if (!acctName) return showToast('Enter recipient account name');
+        if (bsb.replace(/\D/g, '').length !== 6) return showToast('Enter a valid 6-digit Australian BSB');
+        if (acctNum.length < 5) return showToast('Enter a valid recipient account number');
+
+        txTitle = `Osko Transfer → ${acctName} (${bank.code} • BSB ${bsb})`;
+        if (ref) txTitle += ` — ${ref}`;
+      } else if (transferType === 'payid') {
+        const bankCode = document.getElementById('payid-bank-select').value;
+        const payIdType = document.getElementById('payid-type').value;
+        const payIdVal = document.getElementById('payid-value').value.trim();
+
+        if (!payIdVal) return showToast('Enter recipient PayID identifier');
+        txTitle = `PayID (${payIdType}) → ${payIdVal} (${bankCode})`;
+        if (ref) txTitle += ` — ${ref}`;
+      } else {
+        state.savings += amount;
+        txTitle = "Internal Transfer → Humes High-Yield Vault";
+        txCategory = "Vault Transfer";
+      }
+
+      state.checking -= amount;
+      state.transactions.unshift({
+        id: Date.now(),
+        title: txTitle,
+        category: txCategory,
+        amount: -amount,
+        date: "21 November 2026",
+        icon: "send"
+      });
+
+      document.getElementById('transfer-amount').value = '';
+      document.getElementById('transfer-ref').value = '';
+      saveState();
+      closeModals();
+      render();
+      showToast(`Sent ${formatMoney(amount)} via NPP / Osko®`);
+    }
+
+    function executeDeposit() {
+      const amount = parseFloat(document.getElementById('deposit-amount').value);
+      if (!amount || amount <= 0) return showToast('Please enter a valid AUD deposit amount');
+
+      state.checking += amount;
+      state.transactions.unshift({
+        id: Date.now(),
+        title: "Instant NPP / EFT Deposit",
+        category: "Deposit",
+        amount: amount,
+        date: "21 November 2026",
+        icon: "plus"
+      });
+
+      saveState();
+      closeModals();
+      render();
+      showToast(`Deposited ${formatMoney(amount)} into Humes Checking`);
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      if (!input.value.trim()) return;
+      askAI(input.value.trim());
+      input.value = '';
+    }
+
+    function askAI(prompt) {
+      const chatBox = document.getElementById('chat-messages');
+      chatBox.innerHTML += `<div class="bg-blue-700 text-white p-3.5 rounded-2xl rounded-tr-none max-w-[75%] ml-auto">${prompt}</div>`;
+
+      const lower = prompt.toLowerCase();
+      let reply = `Your total Humes Bank liquidity is <strong>${formatMoney(state.checking + state.savings)}</strong> across Checking and High-Yield Vault.`;
+
+      if (lower.includes('move') || lower.includes('100')) {
+        if (state.checking >= 100000) {
+          state.checking -= 100000;
+          state.savings += 100000;
+          state.transactions.unshift({
+            id: Date.now(),
+            title: "Humes AI Vault Transfer",
+            category: "Transfer",
+            amount: -100000,
+            date: "21 November 2026",
+            icon: "sparkles"
+          });
+          saveState();
+          render();
+          reply = "Done! I transferred <strong>A$100,000.00</strong> from Humes Premier Checking to your High-Yield Vault (4.65% p.a.).";
+        } else {
+          reply = "Your checking balance is currently below A$100,000.00.";
+        }
+      } else if (lower.includes('march') || lower.includes('withdrawal') || lower.includes('16') || lower.includes('18')) {
+        reply = "Your March 2026 withdrawals total <strong>-A$437,000.00</strong>: <strong>-A$87,000.00</strong> on <strong>16 March 2026</strong> and <strong>-A$350,000.00</strong> on <strong>18 March 2026</strong>, leaving <strong>A$6,063,000.00</strong>.";
+      } else if (lower.includes('interest') || lower.includes('yield')) {
+        const annualYield = new Intl.NumberFormat('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(state.savings * 0.0465);
+        reply = `At <strong>4.65% p.a.</strong>, your current High-Yield Vault balance of <strong>${formatMoney(state.savings)}</strong> earns approximately <strong>A$${annualYield}</strong> per year.`;
+      }
+
+      setTimeout(() => {
+        chatBox.innerHTML += `<div class="bg-slate-100 text-slate-800 p-3.5 rounded-2xl rounded-tl-none max-w-[80%]">${reply}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }, 250);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+
+    initBankPartners();
+    lucide.createIcons();
+    if (sessionStorage.getItem('humes_authenticated') === 'true') {
+      enterPortal();
+    }
+  </script>
+</body>
+</html>
